@@ -1,0 +1,47 @@
+x-worker: &worker
+  build: .
+  command: ["worker"]
+  expose:
+    - "9000"
+  healthcheck:
+    test: ["CMD", "curl", "-fs", "http://localhost:9000/health"]
+    interval: 3s
+    timeout: 2s
+    retries: 10
+
+services:
+  middleware:
+    build: .
+    command: ["middleware"]
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      ROUTES: "users=worker-users:9000;products=worker-catalog:9000;orders=worker-orders:9000"
+    depends_on:
+      worker-users:
+        condition: service_healthy
+      worker-catalog:
+        condition: service_healthy
+      worker-orders:
+        condition: service_healthy
+
+  worker-users:
+    <<: *worker
+    environment:
+      ROLE: users
+      PORT: "9000"
+
+  worker-catalog:
+    <<: *worker
+    environment:
+      ROLE: catalog
+      PORT: "9000"
+
+  worker-orders:
+    <<: *worker
+    environment:
+      ROLE: orders
+      PORT: "9000"
+      MIDDLEWARE_HOST: middleware
+      MIDDLEWARE_PORT: "8080"
